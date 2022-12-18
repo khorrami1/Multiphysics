@@ -110,10 +110,10 @@ function assemble_element!(ge, cell, cv, fv, mp, ue, ΓN)
         # Compute deformation gradient F and right Cauchy-Green tensor C
         ∇u = function_gradient(cv, qp, ue)
         F = one(∇u) + ∇u
-        C = tdot(F)
+        #C = tdot(F)
         # Compute stress and tangent
         # S, ∂S∂C = constitutive_driver(C, mp)
-        P, ∂P∂F = constitutive_driver_on_F(F, mp)
+        P, _ = constitutive_driver_on_F(F, mp)
 
         # I = one(S)
         # ∂P∂F =  otimesu(I, S) + 2 * otimesu(F, I) ⊡ ∂S∂C ⊡ otimesu(F', I)
@@ -246,15 +246,15 @@ function solve()
 
     # Pre-allocation of vectors for the solution and Newton increments
     _ndofs = ndofs(dh)
-    un = zeros(_ndofs) # previous solution vector
+    # un = zeros(_ndofs) # previous solution vector
     u  = zeros(_ndofs)
-    Δu = zeros(_ndofs)
-    ΔΔu = zeros(_ndofs)
-    apply!(un, dbcs)
+    # Δu = zeros(_ndofs)
+    # ΔΔu = zeros(_ndofs)
+    # apply!(un, dbcs)
 
     # Create sparse matrix and residual vector
-    K = create_sparsity_pattern(dh)
-    g = zeros(_ndofs)
+    # K = create_sparsity_pattern(dh)
+    # g = zeros(_ndofs)
 
     # # Perform Newton iterations
     # newton_itr = -1
@@ -283,6 +283,7 @@ function solve()
     # end
 
     # solving u via JFNK:
+    apply!(u, dbcs)
     u_freeDOF = zeros(length(dbcs.free_dofs))
     res_mech = zeros(length(dbcs.free_dofs))
     g = zeros(_ndofs)
