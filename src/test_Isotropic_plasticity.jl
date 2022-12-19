@@ -9,37 +9,53 @@ function calc_deviatoric(M::Matrix{<:Number})
     return M .- LinearAlgebra.tr(M)/3
 end
 
-mutable struct J2Plasticity_linearHardeing
-    n :: Number
-    gamma_dot_0 :: Number
-    h0 :: Number
-    gamma_p :: Number
-    xi :: Number
-end
-
-
 gamma_dot_0 = 1e-3
 n = 20
 gamma_dot_p = 0.0
 dt = 1
 gamma_p = 1e-3
 h0 = 50
-xi_0 = 10
+xi_0 = 10.0
 
-F = Matrix{Float64}(I, 3, 3)
-F_p = Matrix{Float64}(I, 3, 3)
-F_p[1,2] = 0.5
-I_3_3 = Matrix{Float64}(I, 3, 3)
+using Tensors
 
-res_F_p_vec = zeros(9)
-F_p_vec = F_p[:]
+struct MaterialState_isoJ2{T, S<:SecondOrderTensor{3, T}}
+    F_p :: S
+    F_e :: S
+    S_e :: S
+    L_p :: S
+    gamma_p :: T
+    xi :: T
+end
 
-function Res_Fp!(res_F_p_vec,F_p_vec, gamma_dot_p, gamma_p, F, I_3_3, h0, xi_0, F_p)
+function MaterialState_isoJ2()
+    return MaterialState_isoJ2(
+        one(Tensor{2, 3}),
+        one(Tensor{2, 3}),
+        zero(Tensor{2, 3}),
+        one(Tensor{2, 3}), 0.0, xi_0
+    )
+end
+
+num_q = 4
+num_cell = 2
+
+matstates = [MaterialState_isoJ2() for _ in 1:num_q, _ in 1:num_cell]
+
+# F = Matrix{Float64}(I, 3, 3)
+# F_p = Matrix{Float64}(I, 3, 3)
+# F_p[1,2] = 0.5
+# I_3_3 = Matrix{Float64}(I, 3, 3)
+
+# res_F_p_vec = zeros(9)
+# F_p_vec = F_p[:]
+
+function Res_Fp!(res_F_p_vec,F_p_vec, gamma_dot_p, gamma_p, F, h0, xi_0, F_p)
     F_p_next = reshape(F_p_vec, 3,3)
     gamma_p_next = gamma_dot_p*dt + gamma_p
     xi_next = xi_0 + h0*gamma_p_next
-    F_e = F*inv(F_p_next)
-    E_e = 0.5*(transpose(F_e)*F_e .- I_3_3)
+    F_e = F ⋅ inv(F_p_next)
+    E_e = 0.5*(tdot(matstates[1,1].F_e) - one(Tensor{2,3}))
     S_e = 25*E_e
     S_e_dev = calc_deviatoric(S_e)
     norm_S_e_dev = norm(S_e_dev)
@@ -53,7 +69,7 @@ end
 
 #Res_Fp!(res_F_p_vec,F_p_vec, gamma_dot_p, gamma_p, F, I_3_3, h0, xi_0, F_p)
 
-Res_Fp_nsoli!(res_F_p_vec, F_p_vec) = Res_Fp!(res_F_p_vec,F_p_vec, gamma_dot_p, gamma_p, F, I_3_3, h0, xi_0, F_p)
+Res_Fp_nsoli!(res_F_p_vec, F_p_vec) = Res_Fp!(res_F_p_vec,F_p_vec, gamma_dot_p, gamma_p, F, h0, xi_0, F_p)
 
 #Res_Fp_nsoli!(F_p_vec, res_F_p_vec)
 
