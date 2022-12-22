@@ -33,14 +33,17 @@ function MaterialState_isoJ2()
         one(Tensor{2, 3}),
         one(Tensor{2, 3}),
         zero(Tensor{2, 3}),
-        one(Tensor{2, 3}), 0.0, xi_0
+        one(Tensor{2, 3}), 0.0, 1.0
     )
 end
 
 num_q = 4
 num_cell = 2
 
-matstates = [MaterialState_isoJ2() for _ in 1:num_q, _ in 1:num_cell]
+matstates_old = [MaterialState_isoJ2() for _ in 1:num_q, _ in 1:num_cell]
+matstates_new = [MaterialState_isoJ2() for _ in 1:num_q, _ in 1:num_cell]
+
+matstates_old .= matstates_new
 
 # F = Matrix{Float64}(I, 3, 3)
 # F_p = Matrix{Float64}(I, 3, 3)
