@@ -26,7 +26,7 @@ Ly = 1.0 + 0.0101
 
 seeds_neighbors = make_neighbor_seeds_2D(seeds, Lx, Ly)
 
-func_pair_dist(p) = mapslices((p1)->Euclidean()(p1,p), seeds_neighbors, dims=2)
+func_pair_dist(p) = mapslices((p1)->SqEuclidean()(p1,p), seeds_neighbors, dims=2)
 #func_pair_dist(p) = mapslices((p1)->custom_dist_func_2D(p1,p), seeds, dims=2)
 
 func_pair_dist(p[1,:])
