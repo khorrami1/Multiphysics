@@ -30,10 +30,10 @@ function make_neighbor_seeds_3D(p::Matrix{<:Number}, Lx::Number, Ly::Number, Lz:
     p3 = p[:,3]
     base = [p ; p1.+Lx p2 p3; p1.+Lx p2.+Ly p3; p1 p2.+Ly p3; p1.-Lx p2 p3;
     p1.-Lx p2.-Ly p3; p1 p2.-Ly p3; p1.+Lx p2.-Ly p3; p1.-Lx p2.+Ly p3]
-    base_add_Lz = base
+    base_add_Lz = copy(base)
     base_add_Lz[:,3] .+= Lz  
-    base_minus_Lz = base
-    base_add_Lz[:,3] .-= Lz 
+    base_minus_Lz = copy(base)
+    base_minus_Lz[:,3] .-= Lz 
     return [base; base_add_Lz; base_minus_Lz]
 end
 
@@ -94,8 +94,8 @@ using Plots
 
 mat_id_matrix = reshape(mat_id, nx, ny, nz)
 
-heatmap(x, y, mat_id_matrix, aspect_ratio=:equal)
-Plots.scatter!(seeds[:,1], seeds[:,2])
+# heatmap(x, y, mat_id_matrix, aspect_ratio=:equal)
+# Plots.scatter!(seeds[:,1], seeds[:,2])
 # Plots.scatter!(seeds_neighbors[:,1], seeds_neighbors[:,2])
 
 # To plot grain boundaries
