@@ -54,19 +54,21 @@ seeds_neighbors = make_neighbor_seeds_3D(seeds, Lx, Ly, Lz)
 function get_id_seeds(points::Matrix{<:Number}, seeds::Matrix{<:Number}, id_seeds::Vector{<:Int}; dist_func=Euclidean())
     
     num_points = size(points,2)
+    range_points = 1:num_points
     num_seeds = length(id_seeds)
+    range_seeds = 1:num_seeds
     id_seed_grids = ones(Int, num_points)
 
-    for (id_p, p) in zip(1:num_points, eachcol(points))
+    for (id_p, p) in zip(range_points, eachcol(points))
 
         pair_dist = zeros(num_seeds)
 
-        for (id_seed, seed) in zip(1:num_seeds, eachcol(seeds))
-            pair_dist[id_seed] = dist_func(p, seed)
+        for (id_seed, seed) in zip(range_seeds, eachcol(seeds))
+            @inbounds pair_dist[id_seed] = dist_func(p, seed)
         end
 
         (_, id_) = findmin(pair_dist)
-        id_seed_grids[id_p] = id_seeds[id_]
+        @inbounds id_seed_grids[id_p] = id_seeds[id_]
 
     end
 
@@ -103,7 +105,7 @@ points = [X[:]'; Y[:]'; Z[:]']
 
 mat_id = get_id_seeds(points, seeds_neighbors, id_seeds_neighbors)
 
-using Plots
+# using Plots
 
 mat_id_matrix = reshape(mat_id, nx, ny, nz);
 
