@@ -2,22 +2,12 @@
 # module VoronoiTessellation
 
 using Distances
-
-# num_points = 100
-dim = 3
-# p = rand(num_points, dim)
-
-num_seeds = 100
-seeds = rand(dim, num_seeds)
-# seeds = [0.24 0.5; 0.74 0.5; 0.5 0.74]
-id_seeds = collect(1:num_seeds)
-
-# id_seeds_neighbors = repeat(id_seeds,9)
-id_seeds_neighbors = repeat(id_seeds,9*3) # for 3D
+using GLMakie
+# using Plots
 
 function make_neighbor_seeds_2D(p::Matrix{<:Number}, Lx::Number, Ly::Number)
-    p1 = p[1,:]
-    p2 = p[2,:]
+    p1 = reshape(p[1,:],1,:)
+    p2 = reshape(p[2,:],1,:)
     return [p [p1.+Lx; p2] [p1.+Lx; p2.+Ly] [p1; p2.+Ly] [p1.-Lx; p2] [p1.-Lx; p2.-Ly] [p1; p2.-Ly] [p1.+Lx; p2.-Ly] [p1.-Lx; p2.+Ly]]
 end
 
@@ -33,23 +23,6 @@ function make_neighbor_seeds_3D(p::Matrix{<:Number}, Lx::Number, Ly::Number, Lz:
     return [base base_add_Lz base_minus_Lz]
 end
 
-# func_periodic(x, L) = x - floor(x/L)*L
-
-Lx = 1.0 + 0.0101
-Ly = 1.0 + 0.0101
-Lz = 1.0 + 0.0101
-
-# seeds_neighbors = make_neighbor_seeds_2D(seeds, Lx, Ly)
-
-# for 3D
-seeds_neighbors = make_neighbor_seeds_3D(seeds, Lx, Ly, Lz)
-
-# func_pair_dist(p) = mapslices((p1)->Euclidean()(p1,p), seeds_neighbors, dims=1)
-
-# custom_dist_func(p1, p2) = sqrt(sum((p1.-p2).^2))
-# func_pair_dist(p) = mapslices((p1)->custom_dist_func_2D(p1,p), seeds_neighbors, dims=2)
-
-# func_pair_dist(p[1,:])
 
 function get_id_seeds(points::Matrix{<:Number}, seeds::Matrix{<:Number}, id_seeds::Vector{<:Int}; dist_func=Euclidean())
     
@@ -76,64 +49,88 @@ function get_id_seeds(points::Matrix{<:Number}, seeds::Matrix{<:Number}, id_seed
 end
 
 
-# mapslices(get_id_seeds, p, dims=1)
+function test_voro_2D(nx::Int, ny::Int, Lx::Number, Ly::Number, num_seeds::Int; is_periodic=true, seeds=nothing)
 
-# ------------------------
+    dim = 2
+    if seeds===nothing
+        seeds = rand(dim, num_seeds)
+    end
+    id_seeds = collect(1:num_seeds)
 
-nx = 50
-ny = 50
-nz = 50
-x = collect(range(0,1,nx))
-y = collect(range(0,1,ny))
-z = collect(range(0,1,nz))
+    # if periodic
+    if is_periodic
+        id_seeds_neighbors = repeat(id_seeds, 9)
+    else
+        id_seeds_neighbors = id_seeds
+    end
 
-# for 2D
-# X = [xx for xx in x, yy in y]
-# Y = [yy for xx in x, yy in y]
+    x = collect(range(0,Lx,nx))
+    y = collect(range(0,Ly,ny))
+    X = [xx for xx in x, _ in y]
+    Y = [yy for _ in x, yy in y]
+    points = [X[:]'; Y[:]']
 
-# for 3D
-X = [xx for xx in x, yy in y, zz in z]
-Y = [yy for xx in x, yy in y, zz in z]
-Z = [zz for xx in x, yy in y, zz in z]
+    seeds_neighbors = make_neighbor_seeds_2D(seeds, Lx+1e-3, Ly+1e-3)
 
-# points = [X[:] Y[:]]
+    mat_id = get_id_seeds(points, seeds_neighbors, id_seeds_neighbors)
+    mat_id_matrix = reshape(mat_id, nx, ny);
 
-# for 3D
-points = [X[:]'; Y[:]'; Z[:]']
+    println("The Voronoi tessellation is done!")
 
-# mat_id = mapslices((p)->get_id_seeds(p, id_seeds_neighbors), points, dims=1);
+    # heatmap(x, y, mat_id_matrix, aspect_ratio=:equal)
+    # Plots.scatter!(seeds[1,:], seeds[2,:])
+    # plt = Plots.scatter!(seeds_neighbors[1,:], seeds_neighbors[2,:])
 
-mat_id = get_id_seeds(points, seeds_neighbors, id_seeds_neighbors)
+    # To plot grain boundaries
+    # Plots.contour(x, y, reshape(mat_id, 100, 100))
 
-# using Plots
+    fig = Figure()
+    Axis(fig[1, 1], aspect=1.0)
+    ms = meshscatter!(X[:], Y[:], color=mat_id_matrix[:] ,marker=Rect2((0,0), (1,1)), markersize=Lx/nx)
+    Colorbar(fig[1,2], ms)
+    resize_to_layout!(fig)
 
-mat_id_matrix = reshape(mat_id, nx, ny, nz);
+    return fig
+end
 
-# heatmap(x, y, mat_id_matrix, aspect_ratio=:equal)
-# Plots.scatter!(seeds[:,1], seeds[:,2])
-# Plots.scatter!(seeds_neighbors[:,1], seeds_neighbors[:,2])
+function test_voro_3D(nx::Int, ny::Int, nz::Int, Lx::Number, Ly::Number, Lz::Number, num_seeds::Int; is_periodic=true, seeds=nothing)
 
-# To plot grain boundaries
-# Plots.contour(x, y, reshape(mat_id, 100, 100))
+    dim = 3
+    if seeds===nothing
+        seeds = rand(dim, num_seeds)
+    end
+    id_seeds = collect(1:num_seeds)
+
+    # if periodic
+    if is_periodic
+        id_seeds_neighbors = repeat(id_seeds,9*3)
+    else
+        id_seeds_neighbors = id_seeds
+    end
+
+    x = collect(range(0,Lx,nx))
+    y = collect(range(0,Ly,ny))
+    z = collect(range(0,Lz,nz))
+    X = [xx for xx in x, _ in y, _ in z]
+    Y = [yy for _ in x, yy in y, _ in z]
+    Z = [zz for _ in x, _ in y, zz in z]
+    points = [X[:]'; Y[:]'; Z[:]']
+
+    seeds_neighbors = make_neighbor_seeds_3D(seeds, Lx+1e-3, Ly+1e-3, Lz+1e-3)
+
+    mat_id = get_id_seeds(points, seeds_neighbors, id_seeds_neighbors)
+    mat_id_matrix = reshape(mat_id, nx, ny, nz);
+
+    println("The Voronoi tessellation is done!")
+
+    fig = Figure()
+    Axis3(fig[1, 1], aspect=(1,1,1))
+    ms = meshscatter!(X[:], Y[:], Z[:], color=mat_id_matrix[:] ,marker=Rect3((0,0,0), (1,1,1)), markersize=Lx/nx)
+    Colorbar(fig[1,2], ms)
+    resize_to_layout!(fig)
+    return fig
+end
 
 
-
-using GLMakie
-
-# data = ((i, j, k, RGBf(i, j, k)) for i in 0:0.1:1,
-#                                      j in 0:0.1:1,
-#                                      k in 0:0.1:1)
-
-# x, y, z, color = (vec(getindex.(data, i)) for i in 1:4)
-
-# meshscatter(x, y, z; color)
-
-
-# fig = Figure(resolution=(800,800))
-fig = Figure()
-Axis3(fig[1, 1], aspect=(1,1,1))
-ms = meshscatter!(X[:], Y[:], Z[:], color=mat_id_matrix[:] ,marker=Rect3((0,0,0), (1,1,1)), markersize=Lx/nx)
-Colorbar(fig[1,2], ms)
-resize_to_layout!(fig)
-
-# end
+test_voro_2D(1000, 1000, 1.0, 1.0, 100, is_periodic=false)
+test_voro_3D(50, 50, 50, 1.0, 1.0, 1.0, 50, seeds=rand(3, 100))
