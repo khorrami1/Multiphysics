@@ -2,7 +2,9 @@
 # module VoronoiTessellation
 
 using Distances
-using GLMakie
+
+# import GLMakie if you want to test or visualize your results
+# using GLMakie
 # using Plots
 
 function make_neighbor_seeds_2D(p::Matrix{<:Number}, Lx::Number, Ly::Number)
@@ -49,6 +51,31 @@ function get_id_seeds(points::Matrix{<:Number}, seeds::Matrix{<:Number}, id_seed
 end
 
 
+function make_voro_3D(points::Matrix{<:Number}, num_seeds::Int; is_periodic=true, seeds=nothing, Lx=nothing, Ly=nothing, Lz=nothing)
+
+    dim = 3
+    if seeds===nothing
+        seeds = rand(dim, num_seeds)
+    end
+    id_seeds = collect(1:num_seeds)
+
+    # if periodic
+    if is_periodic
+        id_seeds_ = repeat(id_seeds,9*3)
+        seeds_ = make_neighbor_seeds_3D(seeds, Lx+1e-3, Ly+1e-3, Lz+1e-3)
+    else
+        id_seeds_ = id_seeds
+        seeds_ = seeds
+    end
+
+    mat_id = get_id_seeds(points, seeds_, id_seeds_)
+    # mat_id_matrix = reshape(mat_id, nx, ny, nz);
+
+    return mat_id
+
+end
+
+
 function test_voro_2D(nx::Int, ny::Int, Lx::Number, Ly::Number, num_seeds::Int; is_periodic=true, seeds=nothing)
 
     dim = 2
@@ -59,9 +86,11 @@ function test_voro_2D(nx::Int, ny::Int, Lx::Number, Ly::Number, num_seeds::Int; 
 
     # if periodic
     if is_periodic
-        id_seeds_neighbors = repeat(id_seeds, 9)
+        id_seeds_ = repeat(id_seeds, 9)
+        seeds_ = make_neighbor_seeds_2D(seeds, Lx+1e-3, Ly+1e-3)
     else
-        id_seeds_neighbors = id_seeds
+        id_seeds_ = id_seeds
+        seeds_ = seeds
     end
 
     x = collect(range(0,Lx,nx))
@@ -70,9 +99,7 @@ function test_voro_2D(nx::Int, ny::Int, Lx::Number, Ly::Number, num_seeds::Int; 
     Y = [yy for _ in x, yy in y]
     points = [X[:]'; Y[:]']
 
-    seeds_neighbors = make_neighbor_seeds_2D(seeds, Lx+1e-3, Ly+1e-3)
-
-    mat_id = get_id_seeds(points, seeds_neighbors, id_seeds_neighbors)
+    mat_id = get_id_seeds(points, seeds_, id_seeds_)
     mat_id_matrix = reshape(mat_id, nx, ny);
 
     println("The Voronoi tessellation is done!")
@@ -103,9 +130,11 @@ function test_voro_3D(nx::Int, ny::Int, nz::Int, Lx::Number, Ly::Number, Lz::Num
 
     # if periodic
     if is_periodic
-        id_seeds_neighbors = repeat(id_seeds,9*3)
+        id_seeds_ = repeat(id_seeds,9*3)
+        seeds_ = make_neighbor_seeds_3D(seeds, Lx+1e-3, Ly+1e-3, Lz+1e-3)
     else
-        id_seeds_neighbors = id_seeds
+        id_seeds_ = id_seeds
+        seeds_ = seeds
     end
 
     x = collect(range(0,Lx,nx))
@@ -116,9 +145,7 @@ function test_voro_3D(nx::Int, ny::Int, nz::Int, Lx::Number, Ly::Number, Lz::Num
     Z = [zz for _ in x, _ in y, zz in z]
     points = [X[:]'; Y[:]'; Z[:]']
 
-    seeds_neighbors = make_neighbor_seeds_3D(seeds, Lx+1e-3, Ly+1e-3, Lz+1e-3)
-
-    mat_id = get_id_seeds(points, seeds_neighbors, id_seeds_neighbors)
+    mat_id = get_id_seeds(points, seeds_, id_seeds_)
     mat_id_matrix = reshape(mat_id, nx, ny, nz);
 
     println("The Voronoi tessellation is done!")
@@ -132,5 +159,5 @@ function test_voro_3D(nx::Int, ny::Int, nz::Int, Lx::Number, Ly::Number, Lz::Num
 end
 
 
-test_voro_2D(1000, 1000, 1.0, 1.0, 100, is_periodic=false)
-test_voro_3D(50, 50, 50, 1.0, 1.0, 1.0, 50, seeds=rand(3, 100))
+# test_voro_2D(1000, 1000, 1.0, 1.0, 100, is_periodic=false)
+# test_voro_3D(50, 50, 50, 1.0, 1.0, 1.0, 50, seeds=rand(3, 100))
