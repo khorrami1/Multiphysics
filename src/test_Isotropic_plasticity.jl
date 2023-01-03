@@ -5,26 +5,44 @@ using Rotations
 using SIAMFANLEquations
 
 
+struct Phenomenological_power_low{T}
+    C_11 :: T # Elastic modulii
+    C_12 :: T # Elastic modulii
+    C_44 :: T # Elastic modulii
+    γ_dot_0 :: T # Reference shear rate
+    m :: T # Rate sensitivity
+    τ_hat_0 :: T # Initial slip hardness
+    τ_hat_sat :: T # Saturation slip hardness
+    h_0 :: T # Reference hardening rate
+    a :: T # Hardening exponent 
+    q_lat :: T # Latent Hardening
+    num_slip :: Int
+end
+
+
+mat_Al = Phenomenological_power_low{Float64}(106.75*1e3, 60.41*1e3, 28.34*1e3,
+    0.001, 20, 31.0, 63.0, 75.0, 2.25, 1.4, 12)
+
 # F and F_e are given, then we gonna solve F_p:
 # gamma_dot_0
 
-E = 200e9
-ν = 0.3
-dim = 3
-λ = E*ν / ((1 + ν) * (1 - 2ν))
-μ = E / (2(1 + ν))
-δ(i,j) = i == j ? 1.0 : 0.0
+# E = 200e9
+# ν = 0.3
+# dim = 3
+# λ = E*ν / ((1 + ν) * (1 - 2ν))
+# μ = E / (2(1 + ν))
+# δ(i,j) = i == j ? 1.0 : 0.0
 
-function get_func_elasticity(λ, μ)
-    (i,j,k,l) -> λ*δ(i,j)*δ(k,l) + μ*(δ(i,k)*δ(j,l) + δ(i,l)*δ(j,k))
-end
+# function get_func_elasticity(λ, μ)
+#     (i,j,k,l) -> λ*δ(i,j)*δ(k,l) + μ*(δ(i,k)*δ(j,l) + δ(i,l)*δ(j,k))
+# end
 
 func_elas = get_func_elasticity(λ::Number, μ::Number)
 
 # units: Stress: [MPa], Length: [μm], Force: [μN]
-C_11 = 107.3*1000 # C_22 = C_33
-C_12 = 60.9*1000
-C_44 = 28.3*1000
+C_11 = mat_Al.C_11 # C_22 = C_33
+C_12 = mat_Al.C_12
+C_44 = mat_Al.C_44
 get_C_qubic(C_11::Number, C_12::Number, C_44::Number) = [C_11 C_12 C_12 0 0 0; C_12 C_11 C_12 0 0 0 ; C_12 C_12 C_11 0 0 0; 0 0 0 C_44 0 0;  0 0 0 0 C_44 0;  0 0 0 0 0 C_44]
 
 get_C_qubic(C_11, C_12, C_44)
@@ -55,7 +73,7 @@ end
 
 func_elas = get_C_qubic_from_ijkl(C_11, C_12, C_44)
 
-C = SymmetricTensor{4, dim}(func_elas)
+C = SymmetricTensor{4, 3}(func_elas)
 
 q = rand(QuatRotation)
 axis_angle = AngleAxis(q)
@@ -148,3 +166,114 @@ sol = nsoli(Res_Fp_nsoli!, F_p_vec, F_p_vec, zeros(length(F_p_vec), krylov_dims)
 println()
 @show sol.history
 
+
+
+# Plastic Flow and Hardening at a Material Point
+
+function get_FCC_slip_system()
+    s_1 = Vec((1, -1, 0))
+    n_1 = Vec((1, 1, 1))
+    s_2 = Vec((1, 0, -1))
+    n_2 = Vec((1, 1, 1))
+    s_3 = Vec((0, 1, -1))
+    n_3 = Vec((1, 1, 1))
+    s_4 = Vec((1, 1, 0))
+    n_4 = Vec((1, -1, -1))
+    s_5 = Vec((1, 0, 1))
+    n_5 = Vec((1, -1, -1))
+    s_6 = Vec((0, 1, -1))
+    n_6 = Vec((1, -1, -1))
+    s_7 = Vec((1, 1, 0))
+    n_7 = Vec((1, -1, 1))
+    s_8 = Vec((1, 0, -1))
+    n_8 = Vec((1, -1, 1))
+    s_9 = Vec((0, 1, 1))
+    n_9 = Vec((1, -1, 1))
+    s_10 = Vec((1, -1, 0))
+    n_10 = Vec((-1, -1, 1))
+    s_11 = Vec((1, 0, 1))
+    n_11 = Vec((-1, -1, 1))
+    s_12 = Vec((0, 1, 1))
+    n_12 = Vec((-1, -1, 1))
+    return [s_1, s_2, s_3, s_4, s_5, s_6, s_7, s_8, s_9, s_10, s_11, s_12],
+     [n_1, n_2, n_3, n_4, n_5, n_6, n_7, n_8, n_9, n_10, n_11, n_12]
+end
+
+s_slip, n_slip = get_FCC_slip_system()
+
+Schmid_tensors = [s_slip[a] ⊗ n_slip[a] for a in 1:mat_Al.num_slip]
+symmetric_Schmid = symmetric.(Schmid_tensors)
+
+s_a = zero(Tensor{1,3})
+n_a = zero(Tensor{1,3})
+S = zero(Tensor{2,3})
+
+F_e = one(Tensor{2,3})
+
+C_e = F_e' ⋅ F_e
+τ = [C_e ⊡ (S ⋅ symmetric_Schmid[a]) for a in 1:num_slip]
+
+
+τ_hat = [mat_Al.τ_hat_0 for a in 1:num_slip]
+
+h = [mat_Al.h_0*(1-τ_hat[a]/mat_Al.τ_hat_sat)^mat_Al.a for a in 1:num_slip]
+
+function get_hardening_matrix(q::Number)
+    A = Matrix([1.0 0 0 ; 0 1.0 0; 0 0 1.0])
+    qA = Matrix([1.0 0 0 ; 0 1.0 0; 0 0 1.0])*q
+    return [A qA qA qA ; qA A qA qA ; qA qA A qA; qA qA qA A]
+end
+
+H_hardening = get_hardening_matrix(mat_Al.q_lat) 
+
+γ_dot = [mat_Al.γ_dot_0 for _ in 1:num_slip]
+
+τ_hat_dot = [sum([H_hardening[a,b]*norm(γ_dot[b]) for b in 1:num_slip]) for a in 1:num_slip]
+
+Δt = 1e-3
+
+τ_hat_new = τ_hat .+ τ_hat_dot .* Δt
+
+γ_dot = [γ_dot_0 * (norm(τ[a]/τ_hat_new[a]))^mat_Al.m * sign(τ[a]) for a in 1:num_slip]
+
+L_p = sum([γ_dot[a] * s_slip[a] ⊗ n_slip[a] for a in 1:num_slip])
+
+L_p
+
+F_p = one(Tensor{2,3}) + rand(Tensor{2,3})
+F_p = F_p / det(F_p)^(1/3) 
+det(F_p)
+
+
+F = one(Tensor{2,3})
+F_p = Tensor{2, 3}((i,j) -> (i == 1 && j == 2) ? 0.005 : 0.0) + F
+
+res_F_p_vec = zeros(9)
+F_p_vec = collect(F_p.data)
+
+τ_hat_old = [mat_Al.τ_hat_0 for a in 1:mat_Al.num_slip]
+τ_hat = [mat_Al.τ_hat_0 for a in 1:mat_Al.num_slip]
+γ_dot = [mat_Al.γ_dot_0 for _ in 1:mat_Al.num_slip]
+
+function Residual_Lp!(F_p_vec, F, F_p_0, C_rotated, symmetric_Schmid, τ_hat_old, τ_hat, γ_dot, mat, s_slip, n_slip, Δt)
+
+    F_p = Tensor{2,3}(F_p_vec)
+    F_e = F ⋅ inv(F_p)
+    C_e = F_e' ⋅ F_e
+    S = C_rotated ⊡ (C_e - one(Tensor{2,3}))
+    τ = [C_e ⊡ (S ⋅ symmetric_Schmid[a]) for a in 1:mat.num_slip]
+    h = [mat.h_0*(1-τ_hat[a]/mat.τ_hat_sat)^mat.a for a in 1:mat.num_slip]
+    τ_hat_dot = [sum([H_hardening[a,b]*h[b]*norm(γ_dot[b]) for b in 1:mat.num_slip]) for a in 1:mat.num_slip]
+    τ_hat = τ_hat_old .+ τ_hat_dot .* Δt
+
+    γ_dot = [mat.γ_dot_0 * (norm(τ[a]/τ_hat[a]))^mat_Al.m * sign(τ[a]) for a in 1:mat.num_slip]
+
+    L_p = sum([γ_dot[a] * s_slip[a] ⊗ n_slip[a] for a in 1:mat.num_slip])
+    residual = F_p - F_p_0 - L_p ⋅ F_p *Δt
+
+    return residual
+end
+
+F_p_0 = F_p
+Δt = 0.001
+Residual_Lp!(F_p_vec, F, F_p_0, C_rotated, symmetric_Schmid, τ_hat_old, τ_hat, γ_dot, mat_Al, s_slip, n_slip, Δt)
