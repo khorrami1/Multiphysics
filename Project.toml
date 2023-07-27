@@ -1,8 +1,10 @@
 [deps]
+Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
 Ferrite = "c061ca5d-56c9-439f-9c0e-210fe06d3992"
 IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
+Rotations = "6038ab10-8711-5258-84ad-4b1120ba62dc"
 SIAMFANLEquations = "084e46ad-d928-497d-ad5e-07fa361a48c4"
 Tensors = "48a634ad-e948-5137-8d70-aa71f2a747f4"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
